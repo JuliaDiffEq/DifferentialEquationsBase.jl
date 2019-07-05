@@ -1,5 +1,4 @@
 value(x) = x
-cuify(x) = error("To use LinSolveGPUFactorize, you must do `using CuArrays`")
 
 function __init__()
   @require ApproxFun="28f2ccd6-bb30-5033-b560-165f7b14dc2f" begin
@@ -111,14 +110,5 @@ function __init__()
       sqrt(sum(x->ODE_DEFAULT_NORM(x[1],x[2]),zip(u,Iterators.repeated(t))) / length(u))
     end
     @inline ODE_DEFAULT_NORM(u::Flux.Tracker.TrackedReal,t::Flux.Tracker.TrackedReal) = abs(u)
-  end
-
-  # Piracy, should get upstreamed
-  @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    cuify(x::AbstractArray) = CuArrays.CuArray(x)
-    function ldiv!(x::CuArrays.CuArray,_qr::CuArrays.CUSOLVER.CuQR,b::CuArrays.CuArray)
-      _x = UpperTriangular(_qr.R) \ (_qr.Q' * reshape(b,length(b),1))
-      x .= vec(_x)
-    end
   end
 end

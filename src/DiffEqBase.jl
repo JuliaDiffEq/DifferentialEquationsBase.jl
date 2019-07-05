@@ -16,6 +16,31 @@ using FunctionWrappers: FunctionWrapper
 
 using MuladdMacro, Parameters
 
+@static if Base.find_package("CuArrays") !== nothing
+    using CuArrays
+    if Float64(CuArrays.CUDAdrv.totalmem(first(CuArrays.CUDAdrv.devices()))) > 1e9
+        @info("CUDA support found, automatic GPU acceleration will be enabled.")
+        const GPU_SUPPORTED = true
+        const AUTO_GPU_SIZE = 100
+        cuify(x) = CuArrays.CuArray(x)
+
+        # Piracy, should get upstreamed
+        function Base.ldiv!(x::CuArrays.CuArray,_qr::CuArrays.CUSOLVER.CuQR,b::CuArrays.CuArray)
+          _x = UpperTriangular(_qr.R) \ (_qr.Q' * reshape(b,length(b),1))
+          x .= vec(_x)
+        end
+    else
+        @info("CUDA support not found, GPU acceleration will not be available.")
+        const GPU_SUPPORTED = false
+        const AUTO_GPU_SIZE = 100
+        cuify(x) = x
+    end
+else
+    @info("CUDA support not found, GPU acceleration will not be available.")
+    const GPU_SUPPORTED = false
+    const AUTO_GPU_SIZE = 100
+    cuify(x) = x
+end
 
 # Problems
 """
