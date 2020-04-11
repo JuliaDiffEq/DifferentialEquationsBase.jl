@@ -475,7 +475,7 @@ $(TYPEDEF)
 abstract type AbstractReactionNetwork <: Function end
 
 include("fastpow.jl")
-include("diffeqfastbc.jl")
+include("fastbc.jl")
 include("destats.jl")
 include("utils.jl")
 include("calculate_residuals.jl")
