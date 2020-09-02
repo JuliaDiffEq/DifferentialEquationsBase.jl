@@ -166,7 +166,8 @@ cleansyms(syms::Tuple) = collect(cleansym(sym) for sym in syms)
 cleansyms(syms::Vector{Symbol}) = cleansym.(syms)
 function cleansym(sym::Symbol)
   str = String(sym)
-  replace(str,"₊"=>".") # Fix MTK component syntax
+  str = replace(str,"₊"=>".") # Fix MTK component syntax
+  unicode2latex(str)
 end
 issymbollike(x) = typeof(x) <: Symbol || Symbol(typeof(x)) == :Operation || Symbol(typeof(x)) == :Variable
 
