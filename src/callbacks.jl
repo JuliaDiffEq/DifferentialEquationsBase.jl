@@ -418,28 +418,28 @@ function get_condition(integrator::DEIntegrator, callback, abst)
     else
       tmp = @view integrator.u[callback.idxs]
     end
-  elseif abst == integrator.tprev
-    if callback.idxs === nothing
-      tmp = integrator.uprev
-    elseif callback.idxs isa Number
-      tmp = integrator.uprev[callback.idxs]
-    else
-      tmp = @view integrator.uprev[callback.idxs]
-    end
+  #elseif abst == integrator.tprev
+  #  if callback.idxs === nothing
+  #    tmp = integrator.uprev
+  #  elseif callback.idxs isa Number
+  #    tmp = integrator.uprev[callback.idxs]
+  #  else
+  #    tmp = @view integrator.uprev[callback.idxs]
+  #  end
   else
-    if ismutable
-      if callback.idxs === nothing
-        integrator(tmp,abst,Val{0})
-      else
-        integrator(tmp,abst,Val{0},idxs=callback.idxs)
-      end
-    else
+  #  if ismutable
+  #    if callback.idxs === nothing
+  #      integrator(tmp,abst,Val{0})
+  #    else
+  #      integrator(tmp,abst,Val{0},idxs=callback.idxs)
+  #    end
+  #  else
       if callback.idxs === nothing
         tmp = integrator(abst,Val{0})
       else
         tmp = integrator(abst,Val{0},idxs=callback.idxs)
       end
-    end
+  #  end
     # ismutable && !(callback.idxs isa Number) ? integrator(tmp,abst,Val{0},idxs=callback.idxs) :
     #                                                 tmp = integrator(abst,Val{0},idxs=callback.idxs)
   end
@@ -607,12 +607,14 @@ end
     end
     tmp_condition = get_condition(integrator, callback, abst)
 
+    prev_sign = Main.ForwardDiff.derivative(t -> get_condition(integrator, callback, t),integrator.tprev)
+
     # Sometimes users may "switch off" the condition after crossing
     # This is necessary to ensure proper non-detection of a root
     # == is for exact floating point equality!
-    prev_sign =    tmp_condition > previous_condition ? 1.0 :
-                  (tmp_condition == previous_condition ?
-                  (prev_sign = sign(previous_condition)) : -1.0)
+    #prev_sign =    tmp_condition > previous_condition ? 1.0 :
+    #              (tmp_condition == previous_condition ?
+    #              (prev_sign = sign(previous_condition)) : -1.0)
   else
     prev_sign = sign(previous_condition)
   end
