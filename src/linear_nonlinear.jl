@@ -1,22 +1,47 @@
 using LinearAlgebra, SparseArrays, SuiteSparse
 
-struct ForwardSensitivityJacobian{T,JJ<:AbstractMatrix{T}} <: AbstractMatrix{T}
-  J::JJ
+struct ForwardSensitivityW{T,TW1<:AbstractMatrix{T},TW2} <: AbstractMatrix{T}
+  W1::TW1
+  W2::TW2
 end
-Base.parent(J::ForwardSensitivityJacobian) = J.J
-Base.similar(J::ForwardSensitivityJacobian, ::Type{T}) where T = ForwardSensitivityJacobian(similar(parent(J), T))
 
-struct ForwardSensitivityJacobianFactorization{T,F<:Factorization{T}} <: Factorization{T}
-  factorization::F
+struct ForwardSensitivityWFactorization{T,TF1<:Factorization{T},TF2} <: Factorization{T}
+  F1::TF1
+  F2::TF2
 end
-LinearAlgebra.lu!(J::ForwardSensitivityJacobian) = ForwardSensitivityJacobianFactorization(lu!(parent(J)))
-function LinearAlgebra.ldiv!(F::ForwardSensitivityJacobianFactorization, x)
-  F = F.factorization
-  n = size(F, 1)
+for ff in [:lu!, :qr!, :cholesky!, :svd!], f in [ff, Symbol(string(ff)[1:end-1])]
+  @eval function LinearAlgebra.$f(W::ForwardSensitivityW)
+    fact1 = $f(W.W1)
+    fact2 = W.W2 === nothing ? W.W2 : $f(W.W2)
+    ForwardSensitivityWFactorization(fact1, fact2)
+  end
+end
+function LinearAlgebra.ldiv!(F::ForwardSensitivityWFactorization, x)
+  @unpack F1, F2 = F
+  n = size(F1, 1)
   k = length(x)÷n
-  @assert k*n == length(x)
-  ldiv!(F, reshape(x, n, k))
+  @assert k*n == length(x) && k > 1
+  if F2 === nothing
+    ldiv!(F1, reshape(x, n, k))
+  else
+    ldiv!(F1, @view x[1:n])
+    ldiv!(F2, reshape((@view x[n+1:end]), n, k-1))
+  end
   x
+end
+function Base.:(\)(W::ForwardSensitivityW, x)
+  @unpack W1, W2 = W
+  n = size(W1, 1)
+  k = length(x)÷n
+  @assert k*n == length(x) && k > 1
+  if W2 === nothing
+    return W \ reshape(x, n, k)
+  else
+    [
+     F1 \ (@view x[1:n])
+     F2 \ reshape((@view x[n+1:end]), n, k-1)
+    ]
+  end
 end
 
 # This is only used for oop stiff solvers
@@ -97,7 +122,7 @@ function (p::DefaultLinSolve)(x,A,b,update_matrix=false;reltol=nothing, kwargs..
       else
         p.A = lu!(A)
       end
-    elseif A isa Union{Tridiagonal, ForwardSensitivityJacobian}
+    elseif A isa Union{Tridiagonal, ForwardSensitivityW}
       p.A = lu!(A)
     elseif A isa Union{SymTridiagonal}
       p.A = ldlt!(A)
@@ -114,7 +139,7 @@ function (p::DefaultLinSolve)(x,A,b,update_matrix=false;reltol=nothing, kwargs..
     end
   end
 
-  if A isa Union{Matrix,SymTridiagonal,Tridiagonal,Symmetric,Hermitian,ForwardSensitivityJacobian} # No 2-arg form for SparseArrays!
+  if A isa Union{Matrix,SymTridiagonal,Tridiagonal,Symmetric,Hermitian,ForwardSensitivityW} # No 2-arg form for SparseArrays!
     x .= b
     ldiv!(p.A,x)
   # Missing a little bit of efficiency in a rare case
